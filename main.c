@@ -17,25 +17,19 @@ volatile uint16_t adcValue = 0;
 
 void appendSerial(char c);
 void serialWrite(char c[]);
+
+void setupUART(void);
 void setupADC(void);
 void startADC(void);
 
 int main(void) {
-    // Set up UART
-    UBRR0H = (BRC >> 8);
-    UBRR0L = BRC;
-    UCSR0B = (1 << TXEN0) | (1 << TXCIE0); // Enable transmitter and interrupt
-    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // Set 8-bit data size
 
-    // Set up ADC
+    setupUART();
     setupADC();
 
-    sei(); // Enable global interrupts
-
-    // serialWrite("ADC to UART transmission\n");
+    sei();
 
     while (1) {
-        // Main loop can be used for other tasks if necessary
        startADC();
         _delay_ms(20);
     }
@@ -63,18 +57,23 @@ void serialWrite(char c[]) {
     }
 }
 
-// ADC setup function
+void setupUART() {
+    UBRR0H = (BRC >> 8);
+    UBRR0L = BRC;
+    UCSR0B = (1 << TXEN0) | (1 << TXCIE0); // Enable transmitter and interrupt
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // Set 8-bit data size
+}
+
 void setupADC() {
     ADMUX = (1 << REFS0) | (1 << MUX0); // Use Vcc as reference and channel ADC1 (pin A1)
     ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADPS1) | (1 << ADPS2); // Enable ADC, ADC interrupt, and prescaler
     DIDR0 = (1 << ADC1D); // Disable digital input on ADC1 to reduce noise
-    // startADC(); // Start the ADC conversion
 }
 
-// Start ADC conversion
 void startADC() {
     ADCSRA |= (1 << ADSC); // Start the conversion
 }
+
 
 // UART transmit interrupt service routine
 ISR(USART_TX_vect) {
@@ -85,26 +84,17 @@ ISR(USART_TX_vect) {
             serialReadPos = 0; // Wrap around if we reach the end of the buffer
         }
     }
-
-    // _delay_ms(100);
 }
 
 // ADC interrupt service routine
 ISR(ADC_vect) {
-    // if (ADCSRA & (1 << ADIF)) {
-    adcValue = ADC; // Read ADC value
+
+    adcValue = ADC;
     float voltage = (adcValue / 1024.0) * 5.0; // Convert ADC value to voltage
-    
     int voltage2 = (int) (voltage * 100);
-    // Prepare a string with the ADC value in the format "Voltage: X.XXV"
+    
     char voltageStr[30];
     snprintf(voltageStr, sizeof(voltageStr), "Voltage: %dV\r\n", voltage2);
     
     serialWrite(voltageStr); // Send the string over UART
-
-       // ADCSRA |= (1 << ADIF);  // Clear the interrupt flag
-
-    // }
-    // Start the next ADC conversion
-    // startADC();
 }
