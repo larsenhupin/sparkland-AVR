@@ -1,6 +1,5 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <stdio.h>
 #include <string.h>
 
 #define F_CPU 16000000UL
@@ -15,6 +14,7 @@ uint8_t serialReadPos = 0;
 uint8_t serialWritePos = 0;
 volatile uint16_t adcValue = 0;
 
+void float_to_char_array(float num, char *buffer, int precision);
 void appendSerial(char c);
 void serialWrite(char c[]);
 
@@ -74,7 +74,6 @@ void startADC() {
     ADCSRA |= (1 << ADSC); // Start the conversion
 }
 
-
 // UART transmit interrupt service routine
 ISR(USART_TX_vect) {
     if (serialReadPos != serialWritePos) {
@@ -90,11 +89,60 @@ ISR(USART_TX_vect) {
 ISR(ADC_vect) {
 
     adcValue = ADC;
-    float voltage = (adcValue / 1024.0) * 5.0; // Convert ADC value to voltage
-    int voltage2 = (int) (voltage * 100);
-    
-    char voltageStr[30];
-    snprintf(voltageStr, sizeof(voltageStr), "Voltage: %dV\r\n", voltage2);
-    
-    serialWrite(voltageStr); // Send the string over UART
+    float voltage = (adcValue / 1023.0) * 5.0; // Convert ADC value to voltage
+    // float voltage = (adcValue / 1024.0) * 5.0;
+
+    char floatBuffer[12]; // Sufficient to store the largest 32-bit integer + null terminator
+    float_to_char_array(voltage, floatBuffer, 2);
+
+    serialWrite(floatBuffer); // Send the string over UART
+}
+
+
+void float_to_char_array(float num, char *buffer, int precision) {
+    int i = 0;
+    int is_negative = 0;
+
+    // Handle negative numbers
+    if (num < 0) {
+        is_negative = 1;
+        num = -num; // Make the number positive
+    }
+
+    // Extract the integer part
+    int int_part = (int)num;
+    float frac_part = num - int_part;
+
+    // Convert the integer part to string
+    do {
+        buffer[i++] = (int_part % 10) + '0'; // Convert digit to character
+        int_part /= 10;
+    } while (int_part > 0);
+
+    // Add negative sign if needed
+    if (is_negative) {
+        buffer[i++] = '-';
+    }
+
+    // Reverse the integer part in the buffer
+    for (int j = 0; j < i / 2; j++) {
+        char temp = buffer[j];
+        buffer[j] = buffer[i - j - 1];
+        buffer[i - j - 1] = temp;
+    }
+
+    // Add the decimal point
+    buffer[i++] = '.';
+
+    // Convert the fractional part to string with the given precision
+    for (int j = 0; j < precision; j++) {
+        frac_part *= 10;
+        int digit = (int)frac_part;
+        buffer[i++] = digit + '0';
+        frac_part -= digit;
+    }
+
+    // Add '\n' and '\0' at the end
+    buffer[i++] = '\n';   // Add newline
+    buffer[i] = '\0';     // Null-terminate the string
 }
