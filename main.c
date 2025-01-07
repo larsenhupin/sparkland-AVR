@@ -90,10 +90,10 @@ ISR(ADC_vect) {
 
     adcValue = ADC;
     float voltage = (adcValue / 1023.0) * 5.0; // Convert ADC value to voltage
-    // float voltage = (adcValue / 1024.0) * 5.0;
+    // float voltage = (adcValue / 1024.0);
 
     char floatBuffer[12]; // Sufficient to store the largest 32-bit integer + null terminator
-    float_to_char_array(voltage, floatBuffer, 2);
+    float_to_char_array(voltage, floatBuffer, 6);
 
     serialWrite(floatBuffer); // Send the string over UART
 }
@@ -143,6 +143,7 @@ void float_to_char_array(float num, char *buffer, int precision) {
     }
 
     // Add '\n' and '\0' at the end
+    buffer[i++] = 'V';   // Add newline
     buffer[i++] = '\n';   // Add newline
     buffer[i] = '\0';     // Null-terminate the string
 }
