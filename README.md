@@ -1,11 +1,13 @@
 ## TODO
 
 - [ ] Use ISR timer for interrupt
+- [ ] Solve the stuff with 10-bit and 1023.0
 - [ ] Add multiple / dynamic ADC channels
 - [ ] Send multiple values (csv style)
 - [ ] Improve float_to_char_array
 - [ ] Codify data transfer
-
+- [ ] Enable Asynchronus bidirection I/O (add RX with TX)
+- [ ] 
 
 
 ## Reading
