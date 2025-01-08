@@ -1,30 +1,10 @@
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <string.h>
+#include "main.h"
 
-#define F_CPU 16000000UL
-#define BUAD 9600
-#define BRC ((F_CPU / 16 / BUAD) - 1)
-#define TX_BUFFER_SIZE 128
 
-// TODO Make a struct
-char serialBuffer[TX_BUFFER_SIZE];
-uint8_t serialReadPos = 0;
-uint8_t serialWritePos = 0;
-
+SerialTX serialTX = {.readPos = 0, .writePos = 0};
 volatile uint16_t valueADC = 0;
-
 int extraTime = 0;
 
-void setupTimer(void);
-void setupUART(void);
-void setupADC(void);
-
-void startADC(void);
-
-void float_to_char_array(float num, char *buffer, int precision);
-void appendSerial(char c);
-void serialWrite(char c[]);
 
 int main(void)
 {
@@ -56,13 +36,13 @@ ISR(TIMER0_COMPA_vect)
 
 ISR(USART_TX_vect)
 {
-    if (serialReadPos != serialWritePos) 
+    if (serialTX.readPos != serialTX.writePos) 
     {
-        UDR0 = serialBuffer[serialReadPos];
-        serialReadPos++;
-        if (serialReadPos >= TX_BUFFER_SIZE)
+        UDR0 = serialTX.buffer[serialTX.readPos];
+        serialTX.readPos++;
+        if (serialTX.readPos >= TX_BUFFER_SIZE)
         {
-            serialReadPos = 0; // Wrap around if we reach the end of the buffer
+            serialTX.readPos = 0; // Wrap around if we reach the end of the buffer
         }
     }
 }
@@ -111,12 +91,12 @@ void startADC()
 
 void appendSerial(char c)
 {
-    serialBuffer[serialWritePos] = c;
-    serialWritePos++;
+    serialTX.buffer[serialTX.writePos] = c;
+    serialTX.writePos++;
 
-    if (serialWritePos >= TX_BUFFER_SIZE)
+    if (serialTX.writePos >= TX_BUFFER_SIZE)
     {
-        serialWritePos = 0; // Wrap around if buffer is full
+        serialTX.writePos = 0; // Wrap around if buffer is full
     }
 }
 
@@ -129,8 +109,8 @@ void serialWrite(char c[])
 
     if (UCSR0A & (1 << UDRE0)) // If transmit buffer is ready
     {
-        UDR0 = serialBuffer[serialReadPos];
-        serialReadPos = (serialReadPos + 1) % TX_BUFFER_SIZE;
+        UDR0 = serialTX.buffer[serialTX.readPos];
+        serialTX.readPos = (serialTX.readPos + 1) % TX_BUFFER_SIZE;
     }
 }
 
@@ -183,8 +163,8 @@ void float_to_char_array(float num, char *buffer, int precision)
         frac_part -= digit;
     }
 
-    // Add '\n' and '\0' at the end
-    buffer[i++] = 'V';   // Add newline
-    buffer[i++] = '\n';   // Add newline
-    buffer[i] = '\0';     // Null-terminate the string
+    // Add newline and null-terminated characters
+    buffer[i++] = 'V';
+    buffer[i++] = '\n';
+    buffer[i] = '\0';
 }
