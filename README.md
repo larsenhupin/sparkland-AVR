@@ -2,10 +2,10 @@
 
 - [ ] Solve the stuff with 10-bit and 1023.0
 - [ ] Improve float_to_char_array
-- [ ] Send multiple values (csv style)
-- [ ] Add multiple / dynamic ADC channels
+- [ ] Add dynamic ADC channels
 - [ ] Enable Asynchronus bidirection I/O (add RX with TX)
 - [ ] Codify data transfer
+- [x] Send multiple values (csv style)
 - [x] Add column title
 - [x] Make github repo for code I don't want to loose
 - [x] Use ISR timer for interrupt

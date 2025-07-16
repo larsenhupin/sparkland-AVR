@@ -1,7 +1,8 @@
 #include "main.h"
 
 SerialTX serialTX = {.readPos = 0, .writePos = 0};
-volatile uint16_t valueADC = 0;
+volatile uint16_t valuesADC[2];
+volatile uint8_t channelADC = 0;
 int extraTime = 0;
 int firstPass = 1;
 
@@ -49,20 +50,42 @@ ISR(USART_TX_vect)
 // Analog digital converter
 ISR(ADC_vect)
 {
-    valueADC = ADC;
-    float voltage = (valueADC / 1023.0) * 5.0; // Convert ADC value to voltage
-    // float voltage = (adcValue / 1024.0);
+    valuesADC[channelADC] = ADC;
 
-    char floatBuffer[12];
-    float_to_char_array(voltage, floatBuffer, 6);
-
-    if (firstPass == 1)
+    if (channelADC == 0)
     {
-        serialWrite("10 Hz\n\0");
-        firstPass = 0;
+        channelADC = 1;
+        ADMUX = (ADMUX & 0xF0) | 1; // Set to ADC1, 0xF0 = 11110000
+        ADCSRA |= (1 << ADSC);
     }
-    else
-        serialWrite(floatBuffer); // Send the string over UART
+    else 
+    {
+        // We're done reading both channels, send data
+        channelADC = 0;
+
+        char buffer0[16], buffer1[16];
+        
+        float voltage0 = (valuesADC[0] / 1023.0) * 5.0;
+        float voltage1 = (valuesADC[1] / 1023.0) * 5.0;
+        
+        float_to_char_array(voltage0, buffer0, 6);
+        float_to_char_array(voltage1, buffer1, 6);
+        
+        // Replace newline in buffer0 with comma
+        int i = 0;
+        while (buffer0[i] != '\n' && buffer0[i] != '\0') i++;
+        buffer0[i] = '\0';
+
+        if (firstPass == 1)
+        {
+            serialWrite("Var. resistance,555 timer leds\n\0");
+            firstPass = 0;
+        }
+
+        serialWrite(buffer0);
+        serialWrite(",");
+        serialWrite(buffer1);
+    }
 }
 
 void setupTimer()
@@ -83,14 +106,16 @@ void setupUART()
 
 void setupADC()
 {
-    ADMUX = (1 << REFS0) | (1 << MUX0); // Use Vcc as reference and channel ADC1 (pin A1)
+    ADMUX = (1 << REFS0); // Use Vcc as reference
     ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADPS1) | (1 << ADPS2); // Enable ADC, ADC interrupt, and prescaler
-    DIDR0 = (1 << ADC1D); // Disable digital input on ADC1 to reduce noise
+    DIDR0 = (1 << ADC0D) | (1 << ADC1D); // Disable digital input on both ADC0 and ADC1 to reduce noise
 }
 
 void startADC()
 {
-    ADCSRA |= (1 << ADSC); // Start the conversion
+    channelADC = 0;                      // Reset to ADC0
+    ADMUX = (ADMUX & 0xF0) | channelADC; // Force start on ADC0, 0xF0 = 11110000
+    ADCSRA |= (1 << ADSC);               // Start conversion    
 }
 
 void appendSerial(char c)
