@@ -1,10 +1,9 @@
 #include "main.h"
 
-
 SerialTX serialTX = {.readPos = 0, .writePos = 0};
 volatile uint16_t valueADC = 0;
 int extraTime = 0;
-
+int firstPass = 1;
 
 int main(void)
 {
@@ -57,9 +56,14 @@ ISR(ADC_vect)
     char floatBuffer[12];
     float_to_char_array(voltage, floatBuffer, 6);
 
-    serialWrite(floatBuffer); // Send the string over UART
+    if (firstPass == 1)
+    {
+        serialWrite("10 Hz\n\0");
+        firstPass = 0;
+    }
+    else
+        serialWrite(floatBuffer); // Send the string over UART
 }
-
 
 void setupTimer()
 {
@@ -68,7 +72,6 @@ void setupTimer()
     TIMSK0 = (1 << OCIE0A);
     TCCR0B = (1 << CS02 | (1 << CS00)); // Start at 1024 prescalar
 }
-
 
 void setupUART()
 {
