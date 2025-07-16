@@ -8,32 +8,32 @@ int extraTime = 0;
 
 int main(void)
 {
-
     setupTimer();
     setupUART();
     setupADC();
-
-    sei();
+    sei(); // Magic interrupt
 
     while (1) 
     {
-
+        // Do something
     }
 
     return 0;
 }
 
+// Timer
 ISR(TIMER0_COMPA_vect)
 {
     extraTime++;
 
-    if (extraTime > 3)
+    if (extraTime > 3) // TODO: Verify what is this number 3
     {
         startADC();
         extraTime = 0;
     }
 }
 
+// UART
 ISR(USART_TX_vect)
 {
     if (serialTX.readPos != serialTX.writePos) 
@@ -47,13 +47,14 @@ ISR(USART_TX_vect)
     }
 }
 
+// Analog digital converter
 ISR(ADC_vect)
 {
     valueADC = ADC;
     float voltage = (valueADC / 1023.0) * 5.0; // Convert ADC value to voltage
     // float voltage = (adcValue / 1024.0);
 
-    char floatBuffer[12]; // Sufficient to store the largest 32-bit integer + null terminator
+    char floatBuffer[12];
     float_to_char_array(voltage, floatBuffer, 6);
 
     serialWrite(floatBuffer); // Send the string over UART
@@ -107,7 +108,7 @@ void serialWrite(char c[])
         appendSerial(c[i]);
     }
 
-    if (UCSR0A & (1 << UDRE0)) // If transmit buffer is ready
+    if (UCSR0A & (1 << UDRE0)) // Wait for transmit buffer to be ready
     {
         UDR0 = serialTX.buffer[serialTX.readPos];
         serialTX.readPos = (serialTX.readPos + 1) % TX_BUFFER_SIZE;
@@ -119,17 +120,16 @@ void float_to_char_array(float num, char *buffer, int precision)
     int i = 0;
     int is_negative = 0;
 
-    // Handle negative numbers
     if (num < 0)
     {
         is_negative = 1;
         num = -num; // Make the number positive
     }
 
-    // Extract the integer part
-    int int_part = (int)num;
+    int int_part = (int)num; // Extract the integer part
     float frac_part = num - int_part;
 
+    // TODO: Convert do while to for loop or while loop
     // Convert the integer part to string
     do
     {
@@ -164,7 +164,7 @@ void float_to_char_array(float num, char *buffer, int precision)
     }
 
     // Add newline and null-terminated characters
-    buffer[i++] = 'V';
+    // buffer[i++] = 'V';
     buffer[i++] = '\n';
     buffer[i] = '\0';
 }
