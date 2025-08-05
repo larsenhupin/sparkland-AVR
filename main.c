@@ -3,8 +3,7 @@
 SerialTX serialTX = {.readPos = 0, .writePos = 0};
 volatile uint16_t valuesADC[2];
 volatile uint8_t channelADC = 0;
-int extraTime = 0;
-int firstPass = 1;
+uint8_t firstPass = 1;
 
 int main(void)
 {
@@ -15,77 +14,10 @@ int main(void)
 
     while (1) 
     {
-        // Do something
+        // Run program
     }
 
     return 0;
-}
-
-// Timer
-ISR(TIMER0_COMPA_vect)
-{
-    extraTime++;
-
-    if (extraTime > 3) // TODO: Verify what is this number 3
-    {
-        startADC();
-        extraTime = 0;
-    }
-}
-
-// UART
-ISR(USART_TX_vect)
-{
-    if (serialTX.readPos != serialTX.writePos) 
-    {
-        UDR0 = serialTX.buffer[serialTX.readPos];
-        serialTX.readPos++;
-        if (serialTX.readPos >= TX_BUFFER_SIZE)
-        {
-            serialTX.readPos = 0; // Wrap around if we reach the end of the buffer
-        }
-    }
-}
-
-// Analog digital converter
-ISR(ADC_vect)
-{
-    valuesADC[channelADC] = ADC;
-
-    if (channelADC == 0)
-    {
-        channelADC = 1;
-        ADMUX = (ADMUX & 0xF0) | 1; // Set to ADC1, 0xF0 = 11110000
-        ADCSRA |= (1 << ADSC);
-    }
-    else 
-    {
-        // We're done reading both channels, send data
-        channelADC = 0;
-
-        char buffer0[16], buffer1[16];
-        
-        float voltage0 = (valuesADC[0] / 1023.0) * 5.0;
-        float voltage1 = (valuesADC[1] / 1023.0) * 5.0;
-        
-        float_to_char_array(voltage0, buffer0, 6);
-        float_to_char_array(voltage1, buffer1, 6);
-        
-        // Replace newline in buffer0 with comma
-        int i = 0;
-        while (buffer0[i] != '\n' && buffer0[i] != '\0') i++;
-        buffer0[i] = '\0';
-
-        if (firstPass == 1)
-        {
-            serialWrite("Var. resistance,555 timer leds\n\0");
-            firstPass = 0;
-        }
-
-        serialWrite(buffer0);
-        serialWrite(",");
-        serialWrite(buffer1);
-    }
 }
 
 void setupTimer()
@@ -118,6 +50,79 @@ void startADC()
     ADCSRA |= (1 << ADSC);               // Start conversion    
 }
 
+// Timer
+ISR(TIMER0_COMPA_vect)
+{
+    startADC();
+}
+
+// UART
+ISR(USART_TX_vect)
+{
+    if (serialTX.readPos != serialTX.writePos)
+    {
+        UDR0 = serialTX.buffer[serialTX.readPos];
+        serialTX.readPos++;
+        if (serialTX.readPos >= TX_BUFFER_SIZE)
+        {
+            serialTX.readPos = 0;
+        }
+    }
+}
+
+// Analog digital converter
+ISR(ADC_vect)
+{
+    valuesADC[channelADC] = ADC;
+
+    if (channelADC == 0)
+    {
+        channelADC = 1;
+        ADMUX = (ADMUX & 0xF0) | 1; // Set to ADC1, 0xF0 = 11110000
+        ADCSRA |= (1 << ADSC);
+    }
+    else
+    {
+        if (firstPass == 1)
+        {
+            serialWrite("\n\n"); // Flush the buffer
+            serialWrite("adc0 (mv),adc1 (mv)\n");
+            firstPass = 0;
+        }
+        // Send data
+        channelADC = 0;
+
+        char line[40];
+        char buffer0[16], buffer1[16];
+
+        uint16_t millivolt0 = (valuesADC[0] * 5000UL) / 1023;
+        uint16_t millivolt1 = (valuesADC[1] * 5000UL) / 1023;
+
+        millivoltToCharArray(millivolt0, buffer0);
+        millivoltToCharArray(millivolt1, buffer1);
+
+        // Put both values on one line
+        uint8_t i = 0;
+        while (buffer0[i] != '\n' && buffer0[i] != '\0')
+        {
+            line[i] = buffer0[i];
+            i++;
+        }
+        line[i++] = ',';
+
+        uint8_t j = 0;
+        while (buffer1[j] != '\n' && buffer1[j] != '\0')
+        {
+            line[i++] = buffer1[j++];
+        }
+        
+        line[i++] = '\n';
+        line[i] = '\0';
+
+        serialWrite(line);
+    }
+}
+
 void appendSerial(char c)
 {
     serialTX.buffer[serialTX.writePos] = c;
@@ -125,7 +130,7 @@ void appendSerial(char c)
 
     if (serialTX.writePos >= TX_BUFFER_SIZE)
     {
-        serialTX.writePos = 0; // Wrap around if buffer is full
+        serialTX.writePos = 0;
     }
 }
 
@@ -143,56 +148,29 @@ void serialWrite(char c[])
     }
 }
 
-void float_to_char_array(float num, char *buffer, int precision)
+void millivoltToCharArray(uint16_t millivolt, char *millivoltBuffer)
 {
-    int i = 0;
-    int is_negative = 0;
+    char buffer[6];
 
-    if (num < 0)
+    if (millivolt == 0)
     {
-        is_negative = 1;
-        num = -num; // Make the number positive
+        millivoltBuffer[0] = '0';
+        millivoltBuffer[1] = '\0';
+        return;
     }
 
-    int int_part = (int)num; // Extract the integer part
-    float frac_part = num - int_part;
-
-    // TODO: Convert do while to for loop or while loop
-    // Convert the integer part to string
-    do
+    uint8_t i = 0;
+    while (millivolt > 0)
     {
-        buffer[i++] = (int_part % 10) + '0'; // Convert digit to character
-        int_part /= 10;
-    } while (int_part > 0);
-
-    // Add negative sign if needed
-    if (is_negative)
-    {
-        buffer[i++] = '-';
+        buffer[i++] = (millivolt % 10) + '0';
+        millivolt /= 10;
     }
 
-    // Reverse the integer part in the buffer
-    for (int j = 0; j < i / 2; j++)
+    // Reverse
+    for (uint8_t j = 0; j < i; j++)
     {
-        char temp = buffer[j];
-        buffer[j] = buffer[i - j - 1];
-        buffer[i - j - 1] = temp;
+        millivoltBuffer[j] = buffer[i - j - 1];
     }
 
-    // Add the decimal point
-    buffer[i++] = '.';
-
-    // Convert the fractional part to string with the given precision
-    for (int j = 0; j < precision; j++)
-    {
-        frac_part *= 10;
-        int digit = (int)frac_part;
-        buffer[i++] = digit + '0';
-        frac_part -= digit;
-    }
-
-    // Add newline and null-terminated characters
-    // buffer[i++] = 'V';
-    buffer[i++] = '\n';
-    buffer[i] = '\0';
+    millivoltBuffer[i] = '\0';
 }
