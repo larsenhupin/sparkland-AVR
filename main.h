@@ -15,9 +15,8 @@ typedef struct {
 } SerialTX;
 
 void setupTimer(void);
-void setupUART(void);
 void setupADC(void);
+void setupUART(void);
 void startADC(void);
-void appendSerial(char c);
 void writeSerial(char c[]);
 void millivoltToCharArray(uint16_t millivolt, char *millivoltBuffer);
