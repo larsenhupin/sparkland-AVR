@@ -20,3 +20,4 @@ void setupUART(void);
 void startADC(void);
 void writeSerial(char c[]);
 void millivoltToCharArray(uint16_t millivolt, char *millivoltBuffer);
+void concatenateBufferToLine(char *line, char *buffer0, char *buffer1);

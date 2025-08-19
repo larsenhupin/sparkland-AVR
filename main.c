@@ -67,7 +67,7 @@
             // Send data
             channelADC = 0;
 
-            char line[40];
+            char line[32];
             char buffer0[16], buffer1[16];
 
             uint16_t millivolt0 = (valuesADC[0] * 5000UL) / 1023;
@@ -75,22 +75,7 @@
 
             millivoltToCharArray(millivolt0, buffer0);
             millivoltToCharArray(millivolt1, buffer1);
-
-            // Put both values on one line
-            uint8_t i = 0;
-            while (buffer0[i] != '\n' && buffer0[i] != '\0') {
-                line[i] = buffer0[i];
-                i++;
-            }
-            line[i++] = ',';
-
-            uint8_t j = 0;
-            while (buffer1[j] != '\n' && buffer1[j] != '\0') {
-                line[i++] = buffer1[j++];
-            }
-            
-            line[i++] = '\n';
-            line[i] = '\0';
+            concatenateBufferToLine(line, buffer0, buffer1); // Put both values on one line
 
             writeSerial(line);
         }
@@ -149,4 +134,24 @@
         }
 
         millivoltBuffer[i] = '\0';
+    }
+
+    void concatenateBufferToLine(char *line, char *buffer0, char *buffer1) {
+        
+        uint8_t i = 0;
+        while (buffer0[i] != '\n' && buffer0[i] != '\0') {
+            line[i] = buffer0[i];
+            i++;
+        }
+        line[i++] = ',';
+
+        uint8_t j = 0;
+        while (buffer1[j] != '\n' && buffer1[j] != '\0') {
+            line[i++] = buffer1[j++];
+        }
+        
+        line[i++] = '\n';
+        line[i] = '\0';
+    
+        return;
     }
