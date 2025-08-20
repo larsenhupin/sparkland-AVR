@@ -33,7 +33,7 @@
 
     void setupUART() {
         UCSR0B = (1 << TXEN0) | (1 << TXCIE0); // Enable transmitter and interrupt
-        UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // Set 8-bit data size
+        UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // Set 8-bit data frame
         UBRR0H = (BRC >> 8);
         UBRR0L = BRC;
     }
@@ -64,9 +64,8 @@
                 writeSerial("adc0 (mv),adc1 (mv)\n");
                 firstPass = 0;
             }
-            // Send data
-            channelADC = 0;
 
+            channelADC = 0;
             char line[32];
             char buffer0[16], buffer1[16];
 
