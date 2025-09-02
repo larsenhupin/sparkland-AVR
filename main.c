@@ -7,6 +7,7 @@
 
     int main(void) {
         setupTimer();
+        setupPWM();
         setupADC();
         setupUART();
         sei(); // Magic interrupt
@@ -23,6 +24,15 @@
         OCR0A = 195; // Count from 0 to 195
         TIMSK0 = (1 << OCIE0A); // Enable interrupt
         TCCR0B = (1 << CS02 | (1 << CS00)); // Start at 1024 prescalar
+    }
+
+    void setupPWM() {
+        TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2A1); // Use fast-PWM and non-inverting
+        TCCR2B = (1 << CS22); // Start at 64 prescaler
+        OCR2A = 0; // Set duty cycle (from 0 to 255)
+        DDRB |= (1 << PB3); // Output on PB3
+
+        TIMSK2 = (1 << OCIE2B); // Enabled interrupt one timer2
     }
 
     void setupADC() {
@@ -44,7 +54,20 @@
         ADCSRA |= (1 << ADSC);  // Start conversion
     }
 
-    // Timer
+    // Timer2
+    ISR(TIMER2_COMPB_vect) {
+        static uint8_t duty = 0;
+        static int8_t step = 3;
+
+        OCR2A = duty; // Update PWM duty cycle 
+        duty += step;
+
+        if (duty == 0 || duty == 255) {
+            step = -step; // reverse direction
+        }
+    }
+
+    // Timer0
     ISR(TIMER0_COMPA_vect) {
         startADC();
     }

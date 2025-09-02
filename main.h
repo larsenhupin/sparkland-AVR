@@ -15,6 +15,7 @@ typedef struct {
 } SerialTX;
 
 void setupTimer(void);
+void setupPWM(void);
 void setupADC(void);
 void setupUART(void);
 void startADC(void);
