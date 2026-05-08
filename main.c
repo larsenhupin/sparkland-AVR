@@ -1,19 +1,29 @@
     #include "main.h"
 
     SerialTX serialTX = {.readPos = 0, .writePos = 0};
+    SerialRX serialRX = {.readPos = 0, .writePos = 0};
     volatile uint16_t valuesADC[2];
     volatile uint8_t channelADC = 0;
     uint8_t firstPass = 1;
 
     int main(void) {
         setupTimer();
-        setupPWM();
+        // setupPWM();
         setupADC();
         setupUART();
-        sei(); // Magic interrupt
+        sei();
 
         while (1) {
-            // Run program loop
+            
+            char c = readCharSerial();
+
+            if (c == '1') {
+                sbi(PORTB, PORTB0);
+            }
+            else if (c == '0') {
+                cbi(PORTB, PORTB0);
+            }
+
         }
 
         return 0;
@@ -42,10 +52,12 @@
     }
 
     void setupUART() {
-        UCSR0B = (1 << TXEN0) | (1 << TXCIE0); // Enable transmitter and interrupt
+        UCSR0B = (1 << TXEN0) | (1 << TXCIE0) | (1 << RXEN0) | (1 << RXCIE0); // Enable transmitter/receiver and interrupt
         UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // Set 8-bit data frame
         UBRR0H = (BRC >> 8);
         UBRR0L = BRC;
+
+        DDRB = (1 << PORTB0); // Set the direction register to PORTB0
     }
 
     void startADC() {
@@ -98,12 +110,22 @@
             millivoltToCharArray(millivolt0, buffer0);
             millivoltToCharArray(millivolt1, buffer1);
             concatenateBufferToLine(line, buffer0, buffer1); // Put both values on one line
-
             writeSerial(line);
         }
     }
 
-    // UART
+    // UART RX
+    ISR(USART_RX_vect) {
+        
+        serialRX.buffer[serialRX.writePos] = UDR0;
+        serialRX.writePos++;
+
+        if (serialRX.writePos >= RX_BUFFER_SIZE) {
+            serialRX.writePos = 0;
+        }
+    }
+
+    // UART TX
     ISR(USART_TX_vect) {
         if (serialTX.readPos != serialTX.writePos) {
 
@@ -114,6 +136,33 @@
                 serialTX.readPos = 0;
             }
         }
+    }
+
+    char peekCharSerial(void) {
+        char ret = '\0';
+
+        if (serialRX.readPos != serialRX.writePos) {
+
+            ret = serialRX.buffer[serialRX.readPos];
+        }
+
+        return ret;
+    }
+
+    char readCharSerial(void) {
+        char ret = '\0';
+
+        if (serialRX.readPos != serialRX.writePos) {
+            ret = serialRX.buffer[serialRX.readPos];
+
+            serialRX.readPos++;
+
+            if (serialRX.readPos >= RX_BUFFER_SIZE) {
+                serialRX.readPos = 0;
+            }
+        }
+
+        return ret;
     }
 
     void writeSerial(char c[]) {

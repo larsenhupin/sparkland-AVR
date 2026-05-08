@@ -23,13 +23,14 @@ cat /dev/ttyUSB0
 echo '1' > /dev/ttyUSB0  
 echo '0' > /dev/ttyUSB0
 
-## Resources
-file:///Data/Project/Atmega/Atmega328p_datasheet.pdf
+## Check serial configuration
+stty -F /dev/ttyUSB0 -a
 
 ### Ensure that icanon is off, disables canonical mode (processes input immediately).
-
 stty -F /dev/ttyUSB0 9600 cs8 -cstopb -parenb -icanon -echo
 
 ### Unsure
-
 sudo chmod 666 /dev/ttyUSB0
+
+## Resources
+https://blog.sparkland.ca/adc-serial-atmega328-avr-c/
