@@ -3,10 +3,8 @@ CC = avr-gcc
 OBJCOPY = avr-objcopy
 AVRDUDE = avrdude
 PROGRAMMER = usbtiny
-
 CFLAGS = -Os -mmcu=$(MCU)
 LDFLAGS = -mmcu=$(MCU)
-
 TARGET = main
 
 default: bin/$(TARGET).hex
