@@ -1,9 +1,9 @@
 ## TODO
 
 - [ ] Add dynamic ADC channels
-- [ ] Enable Asynchronus bidirection I/O (add RX with TX)
 - [ ] Codify data transfer
-- [X] Remove float and used int instead (Solve the stuff with 10-bit and 1023.0 ())
+- [x] Enable Asynchronus bidirection I/O (add RX with TX)
+- [x] Remove float and used int instead (Solve the stuff with 10-bit and 1023.0 ())
 - [x] Send multiple values (csv style)
 - [x] Add column title
 - [x] Make github repo for code I don't want to loose
@@ -21,7 +21,8 @@ cat /dev/ttyUSB0
 
 ## Writing
 echo '1' > /dev/ttyUSB0  
-echo '0' > /dev/ttyUSB0
+echo "ON" > /dev/ttyUSB0
+echo "OFF" > /dev/ttyUSB0
 
 ## Check serial configuration
 stty -F /dev/ttyUSB0 -a

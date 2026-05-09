@@ -13,17 +13,20 @@ int main(void) {
     setupUART();
     sei();
 
-    while (1) {
-        
-        char c = readCharSerial();
+    // Variables
+    char command[32];
+    size_t i = 0;
 
-        if (c == '1') {
-            sbi(PORTB, PORTB0);
-        }
-        else if (c == '0') {
-            cbi(PORTB, PORTB0);
-        }
+    while (1) { // Program loop
 
+        if (readStringSerial(command, &i)) {
+            if (strcmp(command, "ON") == 0) {
+                sbi(PORTB, PORTB0);
+            }
+            else if (strcmp(command, "OFF") == 0) {
+                cbi(PORTB, PORTB0);
+            }
+        }
     }
 
     return 0;
@@ -57,7 +60,7 @@ void setupUART() {
     UBRR0H = (BRC >> 8);
     UBRR0L = BRC;
 
-    DDRB = (1 << PORTB0); // Set the direction register to PORTB0
+    DDRB = (1 << PORTB0); // Set the direction register to PORTB0   
 }
 
 void startADC() {
@@ -163,6 +166,34 @@ char readCharSerial(void) {
     }
 
     return ret;
+}
+
+uint8_t readStringSerial(char *command, size_t *i) {
+
+    while (serialRX.readPos != serialRX.writePos) {
+        char c = serialRX.buffer[serialRX.readPos];
+
+        serialRX.readPos++;
+
+        if (serialRX.readPos >= RX_BUFFER_SIZE) {
+            serialRX.readPos = 0;
+        }
+
+        if (c == '\r') {
+            continue;
+        }        
+
+        if (c == '\n') {
+            command[*i] = '\0';
+            *i = 0;
+            return 1;
+        }
+
+        command[*i] = c;
+        (*i)++;
+    }
+
+    return 0;
 }
 
 void writeSerial(char c[]) {

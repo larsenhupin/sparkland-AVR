@@ -31,6 +31,7 @@ void setupUART(void);
 void startADC(void);
 char peekCharSerial(void);
 char readCharSerial(void);
+uint8_t readStringSerial(char *command, size_t *i);
 void writeSerial(char c[]);
 void millivoltToCharArray(uint16_t millivolt, char *millivoltBuffer);
 void concatenateBufferToLine(char *line, char *buffer0, char *buffer1);
