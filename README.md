@@ -30,6 +30,10 @@ stty -F /dev/ttyUSB0 -a
 ### Ensure that icanon is off, disables canonical mode (processes input immediately).
 stty -F /dev/ttyUSB0 9600 cs8 -cstopb -parenb -icanon -echo
 
+### Change baud rate to 115200
+stty -F /dev/ttyUSB0 115200
+
+
 ### Unsure
 sudo chmod 666 /dev/ttyUSB0
 

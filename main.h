@@ -3,9 +3,9 @@
 #include <avr/interrupt.h>
 
 #define F_CPU 16000000UL
-#define BUAD 9600
-#define BRC ((F_CPU / 16 / BUAD) - 1)
-#define TX_BUFFER_SIZE 128
+#define BUAD 115200
+#define BRC ((F_CPU / 8 / BUAD) - 1)
+#define TX_BUFFER_SIZE 256
 #define RX_BUFFER_SIZE 128
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
@@ -33,5 +33,8 @@ char peekCharSerial(void);
 char readCharSerial(void);
 uint8_t readStringSerial(char *command, size_t *i);
 void writeSerial(char c[]);
+void buildCsvLine(char *line, uint32_t packetId, uint32_t ts, uint16_t adc0, uint16_t adc1);
+void appendUint16(char *line, uint8_t *idx, uint16_t value);
+void appendUint32(char *line, uint8_t *idx, uint32_t value);
 void millivoltToCharArray(uint16_t millivolt, char *millivoltBuffer);
 void concatenateBufferToLine(char *line, char *buffer0, char *buffer1);

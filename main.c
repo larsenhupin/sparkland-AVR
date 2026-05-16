@@ -2,9 +2,11 @@
 
 SerialTX serialTX = {.readPos = 0, .writePos = 0};
 SerialRX serialRX = {.readPos = 0, .writePos = 0};
+volatile uint32_t systemMillis = 0;
+volatile uint32_t sampleTimestamp = 0;
+volatile uint32_t packetId = 0;
 volatile uint16_t valuesADC[2];
 volatile uint8_t channelADC = 0;
-uint8_t firstPass = 1;
 
 int main(void) {
     setupTimer();
@@ -34,9 +36,9 @@ int main(void) {
 
 void setupTimer() {
     TCCR0A = (1 << WGM01); // Set to CTC mode
-    OCR0A = 195; // Count from 0 to 195
+    OCR0A = 249; // Count from 0 to 249
     TIMSK0 = (1 << OCIE0A); // Enable interrupt
-    TCCR0B = (1 << CS02 | (1 << CS00)); // Start at 1024 prescalar
+    TCCR0B = (1 << CS01 | (1 << CS00)); // Start at 64 prescalar
 }
 
 void setupPWM() {
@@ -55,6 +57,7 @@ void setupADC() {
 }
 
 void setupUART() {
+    UCSR0A = (1 << U2X0); // Set double speed
     UCSR0B = (1 << TXEN0) | (1 << TXCIE0) | (1 << RXEN0) | (1 << RXCIE0); // Enable transmitter/receiver and interrupt
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // Set 8-bit data frame
     UBRR0H = (BRC >> 8);
@@ -84,11 +87,23 @@ ISR(TIMER2_COMPB_vect) {
 
 // Timer0
 ISR(TIMER0_COMPA_vect) {
-    startADC();
+
+    systemMillis++;
+
+    static uint8_t divider = 0;
+    divider++;
+
+    // 100 Hz (10 ms) acquisition
+    if (divider >= 10) {
+        divider = 0;
+        sampleTimestamp = systemMillis;
+        startADC();
+    }
 }
 
 // Analog digital converter
 ISR(ADC_vect) {
+
     valuesADC[channelADC] = ADC;
 
     if (channelADC == 0) {
@@ -97,22 +112,14 @@ ISR(ADC_vect) {
         ADCSRA |= (1 << ADSC);
     }
     else {
-        if (firstPass == 1) {
-            writeSerial("\n\n"); // Flush the buffer
-            writeSerial("adc0 (mv),adc1 (mv)\n");
-            firstPass = 0;
-        }
 
         channelADC = 0;
-        char line[32];
-        char buffer0[16], buffer1[16];
+        char line[64];
 
-        uint16_t millivolt0 = (valuesADC[0] * 5000UL) / 1023;
-        uint16_t millivolt1 = (valuesADC[1] * 5000UL) / 1023;
+        uint16_t adc0 = (valuesADC[0] * 5000UL) / 1023;
+        uint16_t adc1 = (valuesADC[1] * 5000UL) / 1023;
 
-        millivoltToCharArray(millivolt0, buffer0);
-        millivoltToCharArray(millivolt1, buffer1);
-        concatenateBufferToLine(line, buffer0, buffer1); // Put both values on one line
+        buildCsvLine(line, packetId++, sampleTimestamp, adc0, adc1);
         writeSerial(line);
     }
 }
@@ -139,33 +146,6 @@ ISR(USART_TX_vect) {
             serialTX.readPos = 0;
         }
     }
-}
-
-char peekCharSerial(void) {
-    char ret = '\0';
-
-    if (serialRX.readPos != serialRX.writePos) {
-
-        ret = serialRX.buffer[serialRX.readPos];
-    }
-
-    return ret;
-}
-
-char readCharSerial(void) {
-    char ret = '\0';
-
-    if (serialRX.readPos != serialRX.writePos) {
-        ret = serialRX.buffer[serialRX.readPos];
-
-        serialRX.readPos++;
-
-        if (serialRX.readPos >= RX_BUFFER_SIZE) {
-            serialRX.readPos = 0;
-        }
-    }
-
-    return ret;
 }
 
 uint8_t readStringSerial(char *command, size_t *i) {
@@ -213,6 +193,92 @@ void writeSerial(char c[]) {
         UDR0 = serialTX.buffer[serialTX.readPos];
         serialTX.readPos = (serialTX.readPos + 1) % TX_BUFFER_SIZE;
     }
+}
+
+void buildCsvLine(char *line, uint32_t packetId, uint32_t ts, uint16_t adc0, uint16_t adc1) {
+    uint8_t idx = 0;
+
+    appendUint32(line, &idx, packetId);
+    line[idx++] = ',';
+
+    appendUint32(line, &idx, ts);
+    line[idx++] = ',';
+
+    appendUint16(line, &idx, adc0);
+    line[idx++] = ',';
+
+    appendUint16(line, &idx, adc1);
+
+    line[idx++] = '\n';
+    line[idx] = '\0';
+}
+
+void appendUint16(char *line, uint8_t *idx, uint16_t value) {
+    char tmp[6];
+    uint8_t i = 0;
+
+    if (value == 0) {
+        line[(*idx)++] = '0';
+        return;
+    }
+
+    while (value > 0) {
+        tmp[i++] = (value % 10) + '0';
+        value /= 10;
+    }
+
+    while (i > 0) {
+        line[(*idx)++] = tmp[--i];
+    }
+}
+
+void appendUint32(char *line, uint8_t *idx, uint32_t value) {
+    char tmp[11];
+    uint8_t i = 0;
+
+    if (value == 0) {
+        line[(*idx)++] = '0';
+        return;
+    }
+
+    while (value > 0) {
+        tmp[i++] = (value % 10) + '0';
+        value /= 10;
+    }
+
+    while (i > 0) {
+        line[(*idx)++] = tmp[--i];
+    }
+}
+
+// -----------------------------------------------------------------------
+// Not used right now
+
+char peekCharSerial(void) {
+    char ret = '\0';
+
+    if (serialRX.readPos != serialRX.writePos) {
+
+        ret = serialRX.buffer[serialRX.readPos];
+    }
+
+    return ret;
+}
+
+char readCharSerial(void) {
+    char ret = '\0';
+
+    if (serialRX.readPos != serialRX.writePos) {
+        ret = serialRX.buffer[serialRX.readPos];
+
+        serialRX.readPos++;
+
+        if (serialRX.readPos >= RX_BUFFER_SIZE) {
+            serialRX.readPos = 0;
+        }
+    }
+
+    return ret;
 }
 
 void millivoltToCharArray(uint16_t millivolt, char *millivoltBuffer) {
