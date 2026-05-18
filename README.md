@@ -1,7 +1,7 @@
 ## TODO
-
+- [ ] Added working PWM
+- [ ] Codify data transfer (struct, binary)
 - [ ] Add dynamic ADC channels
-- [ ] Codify data transfer
 - [x] Enable Asynchronus bidirection I/O (add RX with TX)
 - [x] Remove float and used int instead (Solve the stuff with 10-bit and 1023.0 ())
 - [x] Send multiple values (csv style)

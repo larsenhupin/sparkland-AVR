@@ -22,10 +22,10 @@ int main(void) {
     while (1) { // Program loop
 
         if (readStringSerial(command, &i)) {
-            if (strcmp(command, "ON") == 0) {
+            if (strcmp(command, "LED ON") == 0) {
                 sbi(PORTB, PORTB0);
             }
-            else if (strcmp(command, "OFF") == 0) {
+            else if (strcmp(command, "LED OFF") == 0) {
                 cbi(PORTB, PORTB0);
             }
         }
@@ -52,7 +52,7 @@ void setupPWM() {
 
 void setupADC() {
     ADMUX = (1 << REFS0); // Use Vcc as reference
-    ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADPS1) | (1 << ADPS2); // Enable ADC, ADC interrupt, and prescaler
+    ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADPS0) | (1 << ADPS1) | (1 << ADPS2); // Enable ADC, ADC interrupt, and prescaler 128
     DIDR0 = (1 << ADC0D) | (1 << ADC1D); // Disable digital input on both ADC0 and ADC1 to reduce noise
 }
 
