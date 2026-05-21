@@ -7,10 +7,11 @@ volatile uint32_t sampleTimestamp = 0;
 volatile uint32_t packetId = 0;
 volatile uint16_t valuesADC[2];
 volatile uint8_t channelADC = 0;
+volatile uint8_t dutyCyclePWM_A = 0;
 
 int main(void) {
     setupTimer();
-    // setupPWM();
+    setupPWM();
     setupADC();
     setupUART();
     sei();
@@ -21,12 +22,34 @@ int main(void) {
 
     while (1) { // Program loop
 
+        // Read commands
         if (readStringSerial(command, &i)) {
             if (strcmp(command, "LED ON") == 0) {
                 sbi(PORTB, PORTB0);
             }
             else if (strcmp(command, "LED OFF") == 0) {
                 cbi(PORTB, PORTB0);
+            }
+            else if (strcmp(command, "PWM_A 2") == 0) {
+                dutyCyclePWM_A = (2*255) / 100;                
+            }
+            else if (strcmp(command, "PWM_A 5") == 0) {
+                dutyCyclePWM_A = (5*255) / 100;                
+            }
+            else if (strcmp(command, "PWM_A 10") == 0) {
+                dutyCyclePWM_A = (10*255) / 100;                
+            }            
+            else if (strcmp(command, "PWM_A 20") == 0) {
+                dutyCyclePWM_A = (20*255) / 100;                
+            }
+            else if (strcmp(command, "PWM_A 50") == 0) {
+                dutyCyclePWM_A = (50*255) / 100;                
+            }
+            else if (strcmp(command, "PWM_A 90") == 0) {
+                dutyCyclePWM_A = (90*255) / 100;                
+            }
+            else if (strcmp(command, "PWM_A 100") == 0) {
+                dutyCyclePWM_A = (100*255) / 100;                
             }
         }
     }
@@ -42,12 +65,12 @@ void setupTimer() {
 }
 
 void setupPWM() {
-    TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2A1); // Use fast-PWM and non-inverting
-    TCCR2B = (1 << CS22); // Start at 64 prescaler
+    TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2A1); // Use fast-PWM and non-inverting (enable timer 2)
+    // TCCR2B = (1 << CS22); // Start at 64 prescaler
+    TCCR2B = (1 << CS21); // Start at 8 prescaler
     OCR2A = 0; // Set duty cycle (from 0 to 255)
-    DDRB |= (1 << PB3); // Output on PB3
-
-    TIMSK2 = (1 << OCIE2B); // Enabled interrupt one timer2
+    DDRB |= (1 << PORTB3); // Output on PORTB3
+    // TIMSK2 = (1 << OCIE2B); // Enabled interrupt one timer2 (not needed here)
 }
 
 void setupADC() {
@@ -63,7 +86,7 @@ void setupUART() {
     UBRR0H = (BRC >> 8);
     UBRR0L = BRC;
 
-    DDRB = (1 << PORTB0); // Set the direction register to PORTB0   
+    DDRB |= (1 << PORTB0); // Set the direction register to PORTB0   
 }
 
 void startADC() {
@@ -72,21 +95,20 @@ void startADC() {
     ADCSRA |= (1 << ADSC);  // Start conversion
 }
 
-// Timer2
-ISR(TIMER2_COMPB_vect) {
-    static uint8_t duty = 0;
-    static int8_t step = 3;
-
-    OCR2A = duty; // Update PWM duty cycle 
-    duty += step;
-
-    if (duty == 0 || duty == 255) {
-        step = -step; // reverse direction
-    }
-}
+// Timer2 (We don't need to use interrupt on timer2 since it's already used to generate PWM)
+// ISR(TIMER2_COMPB_vect) {
+// }
 
 // Timer0
 ISR(TIMER0_COMPA_vect) {
+
+    OCR2A = dutyCyclePWM_A; // Update PWMA duty cycle 
+    // Make PWM go up and down
+    // static int8_t step = 1;
+    // duty += step;
+    // if (duty == 0 || duty == 255) {
+    //     step = -step; // reverse direction
+    // }
 
     systemMillis++;
 
